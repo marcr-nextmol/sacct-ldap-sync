@@ -1,0 +1,474 @@
+openapi: 3.0.0
+info:
+  title: Slurm User and Account Management API
+  description: |
+    This API provides endpoints for managing users and accounts within a Slurm workload manager environment.
+    It allows for the creation, modification, and deletion of user profiles and Slurm accounts,
+    as well as the management of user memberships within these accounts.
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/slurm/v1
+    description: Production server
+  - url: http://localhost:8080/slurm/v1
+    description: Local development server
+
+tags:
+  - name: Users
+    description: Operations related to Slurm users
+  - name: Accounts
+    description: Operations related to Slurm accounts
+
+paths:
+  /users:
+    post:
+      summary: Add a new Slurm user
+      tags:
+        - Users
+      requestBody:
+        description: User data to add
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: User successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: User with this username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: List all Slurm users
+      tags:
+        - Users
+      responses:
+        '200':
+          description: A list of Slurm users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{username}:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        description: The username of the Slurm user
+        schema:
+          type: string
+    put:
+      summary: Modify an existing Slurm user
+      tags:
+        - Users
+      requestBody:
+        description: User data to modify (only fields to be updated)
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User successfully modified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove a Slurm user
+      tags:
+        - Users
+      responses:
+        '204':
+          description: User successfully removed (No Content)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: Get details of a specific Slurm user
+      tags:
+        - Users
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /accounts:
+    post:
+      summary: Create a new Slurm account
+      tags:
+        - Accounts
+      requestBody:
+        description: Account data to create
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountInput'
+      responses:
+        '201':
+          description: Account successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Account with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: List all Slurm accounts
+      tags:
+        - Accounts
+      responses:
+        '200':
+          description: A list of Slurm accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /accounts/{accountName}:
+    parameters:
+      - name: accountName
+        in: path
+        required: true
+        description: The name of the Slurm account
+        schema:
+          type: string
+    delete:
+      summary: Remove a Slurm account
+      tags:
+        - Accounts
+      responses:
+        '204':
+          description: Account successfully removed (No Content)
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: Get details of a specific Slurm account
+      tags:
+        - Accounts
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /accounts/{accountName}/members:
+    parameters:
+      - name: accountName
+        in: path
+        required: true
+        description: The name of the Slurm account
+        schema:
+          type: string
+    post:
+      summary: Add a member to a Slurm account
+      tags:
+        - Accounts
+      requestBody:
+        description: Username of the member to add
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberInput'
+      responses:
+        '200':
+          description: Member successfully added to account
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Account or User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User is already a member of this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove a member from a Slurm account
+      tags:
+        - Accounts
+      requestBody:
+        description: Username of the member to remove
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberInput'
+      responses:
+        '204':
+          description: Member successfully removed from account (No Content)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Account or User not found, or User is not a member of this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - username
+        - uid
+        - defaultAccount
+      properties:
+        username:
+          type: string
+          description: The unique username of the Slurm user
+          example: jdoe
+        uid:
+          type: integer
+          format: int64
+          description: The User ID (UID) of the Slurm user
+          example: 1001
+        fullName:
+          type: string
+          description: The full name of the user
+          example: John Doe
+        defaultAccount:
+          type: string
+          description: The default Slurm account for the user
+          example: research
+        adminLevel:
+          type: string
+          description: The administrative level of the user (e.g., 'normal', 'admin')
+          example: normal
+        creationTime:
+          type: string
+          format: date-time
+          description: Timestamp of user creation
+          example: '2023-10-27T10:00:00Z'
+        updateTime:
+          type: string
+          format: date-time
+          description: Timestamp of last user update
+          example: '2023-10-27T11:30:00Z'
+
+    UserInput:
+      type: object
+      required:
+        - username
+        - defaultAccount
+      properties:
+        username:
+          type: string
+          description: The unique username of the Slurm user
+          example: jdoe
+        fullName:
+          type: string
+          description: The full name of the user
+          example: John Doe
+        defaultAccount:
+          type: string
+          description: The default Slurm account for the user
+          example: research
+        adminLevel:
+          type: string
+          description: The administrative level of the user (e.g., 'normal', 'admin'). Defaults to 'normal' if not provided.
+          enum: [normal, admin]
+          default: normal
+          example: normal
+
+    Account:
+      type: object
+      required:
+        - accountName
+        - description
+      properties:
+        accountName:
+          type: string
+          description: The unique name of the Slurm account
+          example: research
+        description:
+          type: string
+          description: A brief description of the account
+          example: Account for research projects
+        organization:
+          type: string
+          description: The organization associated with the account
+          example: University of Example
+        parentAccount:
+          type: string
+          description: The parent account, if this is a sub-account
+          example: faculty_accounts
+        members:
+          type: array
+          description: List of usernames who are members of this account
+          items:
+            type: string
+          example: ["jdoe", "asmith"]
+        creationTime:
+          type: string
+          format: date-time
+          description: Timestamp of account creation
+          example: '2023-10-27T09:00:00Z'
+        updateTime:
+          type: string
+          format: date-time
+          description: Timestamp of last account update
+          example: '2023-10-27T10:15:00Z'
+
+    AccountInput:
+      type: object
+      required:
+        - accountName
+        - description
+      properties:
+        accountName:
+          type: string
+          description: The unique name of the Slurm account
+          example: research
+        description:
+          type: string
+          description: A brief description of the account
+          example: Account for research projects
+        organization:
+          type: string
+          description: The organization associated with the account
+          example: University of Example
+        parentAccount:
+          type: string
+          description: The parent account, if this is a sub-account
+          example: faculty_accounts
+
+    MemberInput:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          description: The username of the user to add/remove as a member
+          example: jdoe
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: A unique error code
+          example: USER_NOT_FOUND
+        message:
+          type: string
+          description: A human-readable error message
+          example: User 'nonexistent_user' not found.
+
+  responses:
+    NotFound:
+      description: The specified resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            UserNotFound:
+              value:
+                code: USER_NOT_FOUND
+                message: User 'nonexistent_user' not found.
+            AccountNotFound:
+              value:
+                code: ACCOUNT_NOT_FOUND
+                message: Account 'nonexistent_account' not found.
+    BadRequest:
+      description: Invalid input or request body.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            MissingRequiredField:
+              value:
+                code: BAD_REQUEST
+                message: Missing required field 'username'.
+            InvalidFormat:
+              value:
+                code: BAD_REQUEST
+                message: 'Invalid format for field: defaultAccount. Must be alphanumeric.'
+    InternalServerError:
+      description: An unexpected server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            GenericError:
+              value:
+                code: INTERNAL_SERVER_ERROR
+                message: An internal error occurred. Please try again later.
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (e.g., a token issued by the Slurm API gateway).
