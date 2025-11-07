@@ -10,10 +10,9 @@ from openapi_client.api.slurm_api import SlurmApi
 from openapi_client.api.slurmdb_api import SlurmdbApi 
 from openapi_client import ApiClient as Client 
 from openapi_client import Configuration as Config
-from openapi_client.models.v0040_user import V0040User
-from openapi_client.models.v0040_account import V0040Account
-from openapi_client.models.v0040_openapi_error import V0040OpenapiError
-from openapi_client.models.v0040_openapi_resp import V0040OpenapiResp
+from openapi_client.models.v0041_openapi_users_resp import V0041OpenapiUsersResp
+from openapi_client.models.v0041_openapi_accounts_resp import V0041OpenapiAccountsResp 
+from openapi_client.models.v0041_openapi_resp import V0041OpenapiResp
 
 
 
@@ -66,6 +65,7 @@ def get_openldap_users_and_groups():
             result_dict[group_dict[gid]] = [user]
     conn.unbind()
     return result_dict 
+
 
 
 def get_ldap_users_by_secondary_group():
@@ -149,12 +149,12 @@ def get_ldap_users_description(user):
     return user,description
 
 
-def is_account_in_slurm(accounts: List[V0040Account],group: str ) -> bool :
+def is_account_in_slurm(accounts: List[V0041OpenapiAccountsResp],group: str ) -> bool :
     if group in [account.name for account in accounts.accounts ]:
         return True
     return False
 
-def is_user_in_slurm(slurm_users: List[V0040User],user: str ) -> bool :
+def is_user_in_slurm(slurm_users: List[V0041OpenapiUsersResp],user: str ) -> bool :
     if user in [slurm_user.name for slurm_user in slurm_users.users ]:
         return True
     return False
@@ -203,10 +203,11 @@ def gen_token():
     finally:
         return c_access_token
 
-def add_user(user: str, account: str) -> V0040OpenapiResp:
+def add_user(user: str, account: str) -> V0041OpenapiResp:
     try:
+        print(f"create user {user} > account {account}")
         response=None
-        v0040_openapi_users_resp = {
+        V0041_openapi_users_resp = {
             "users":[{
                 "name":user,
                 "associations":[{
@@ -216,25 +217,27 @@ def add_user(user: str, account: str) -> V0040OpenapiResp:
                 }]                   
             }]
         }
-        response=slurmdb.slurmdb_v0040_post_users(v0040_openapi_users_resp=v0040_openapi_users_resp)      
+        response=slurmdb.slurmdb_V0041_post_users(V0041_openapi_users_resp=V0041_openapi_users_resp)      
     except Exception as e:
         print(f"Error adding user {e}")
     finally: 
         return response
 
-def del_user(user: str) -> V0040OpenapiResp:
+def del_user(user: str) -> V0041OpenapiResp:
     try:
+        print(f"Delete user {user}")
         response=None
-        response=slurmdb.slurmdb_v0040_delete_user(user)      
+        response=slurmdb.slurmdb_V0041_delete_user(user)      
     except Exception as e:
         print(f"Error adding user {e}")
     finally: 
         return response
 
-def add_account(group: str) -> V0040OpenapiResp:
+def add_account(group: str) -> V0041OpenapiResp:
     try:
+        print(f"Create account {group}")
         response=None
-        v0040_openapi_accounts = {
+        V0041_openapi_accounts = {
             "accounts": [
                 {
                 "name": group,
@@ -243,24 +246,28 @@ def add_account(group: str) -> V0040OpenapiResp:
                 }
             ]
         }
-        response=slurmdb.slurmdb_v0040_post_accounts(v0040_openapi_accounts_resp=v0040_openapi_accounts)
+        response=slurmdb.slurmdb_V0041_post_accounts(V0041_openapi_accounts_resp=V0041_openapi_accounts)
     except Exception as e:
         print(f"Error adding ACCOUNT {e}")
     finally: 
         return response
 
-def del_account(account: str) -> V0040OpenapiResp:
+def del_account(account: str) -> V0041OpenapiResp:
+    print(f"Delete  account {account}")
+
     try:
         response=None
-        response=slurmdb.slurmdb_v0040_delete_account(acount)      
+        response=slurmdb.slurmdb_V0041_delete_account(account)      
     except Exception as e:
         print(f"Error adding user {e}")
     finally: 
         return response
 
 
-def add_association(user: str, group: str) -> V0040OpenapiResp:
+def add_association(user: str, group: str) -> V0041OpenapiResp:
+    print(f" create association user {user} . account {group}")
     try:
+       
         response=None
         OpenapiUsersResp= {"associations":[{'account': group,
             'cluster': CLUSTER,
@@ -268,7 +275,7 @@ def add_association(user: str, group: str) -> V0040OpenapiResp:
             'parent_account':ORG,           
             }],
         }
-        response=slurmdb.slurmdb_v0040_post_associations(v0040_openapi_assocs_resp=OpenapiUsersResp)
+        response=slurmdb.slurmdb_V0041_post_associations(V0041_openapi_assocs_resp=OpenapiUsersResp)
     except Exception as e:
         print(f"Error adding ACCOUNT {e}")
     finally: 
@@ -287,9 +294,9 @@ if __name__ == "__main__":
 
     c.access_token = gen_token()
     
-    slurm_users = slurmdb.slurmdb_v0040_get_users()
+    slurm_users = slurmdb.slurmdb_V0041_get_users()
     slurm_list_users = [slurm_user.name for slurm_user in slurm_users.users ]
-    slurm_accounts = slurmdb.slurmdb_v0040_get_accounts()
+    slurm_accounts = slurmdb.slurmdb_V0041_get_accounts()
     
     for user, list_of_accounts in dict_users.items():
         if not (is_user_in_slurm(slurm_users,user)):

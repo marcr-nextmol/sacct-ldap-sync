@@ -1,12 +1,15 @@
-
 [project]
-name = "QOS"
+name = "sacct-ldap-sync"
 version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    openapi-client=>1.1.7
+    "ldap3>=2.9.1",
+    "openapi>=2.0.0",
+    "openapi-client>=1.1.7",
+    "requests>=2.32.5",
 ]
 
-[[tool.uv.index]]
-url = "https://test.pypi.org/simple"
-default = true
+[tool.uv.sources]
+openapi-client = { path = "py_slurm_client" }
