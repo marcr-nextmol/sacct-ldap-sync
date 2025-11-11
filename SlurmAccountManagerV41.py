@@ -1,0 +1,163 @@
+import subprocess
+from openapi_client import ApiClient, Configuration
+from openapi_client.api.slurmdb_api import SlurmdbApi
+from openapi_client.api.slurm_api import SlurmApi
+from openapi_client import ApiClient as Client 
+
+
+import json
+from pprint import pprint
+
+class SlurmAccountManagerV41:
+    def __init__(self, api_url="http://10.0.0.13:6820", jwt_token=""):
+        slurm_config = Configuration()
+        slurm_config.host = api_url
+        slurm_config.access_token = jwt_token
+        self.slurm_api = SlurmApi(Client(slurm_config))
+        self.slurmdb_api = SlurmdbApi(Client(slurm_config))
+    
+    def get_accounts_list(self):
+        try:
+            accounts = self.slurmdb_api.slurmdb_v0041_get_accounts()
+            return [(account.name,account.organization) for account in accounts.accounts]
+        except Exception as e:
+            print(f"An error occurred while listing accounts: {e}")
+
+    def get_associations_list(self):
+        try:
+            associations = self.slurmdb_api.slurmdb_v0041_get_associations()
+            return [(assoc.user,assoc.account) for assoc in associations.associations]
+        except Exception as e:
+            print(f"An error occurred while listing associations: {e}")
+    
+    def get_users_list(self):
+        try:
+            users = self.slurmdb_api.slurmdb_v0041_get_users()
+            return [(user.name, user.associations) for user in users.users]
+        except Exception as e:
+            print(f"An error occurred while listing users: {e}")
+    
+    def post_user(self, username, associations=[],defautl_account="nextmol",cluster="nanoscope"):
+        try:
+          
+            v0041_openapi_slurmdbd_config_resp_users_inner = [
+                {
+                 "name": username,
+                 "account":defautl_account,
+                }]
+            print(f"Creating user {username} with associations: {v0041_openapi_slurmdbd_config_resp_users_inner}")
+            response = self.slurmdb_api.slurmdb_v0041_post_users( {
+                "users": v0041_openapi_slurmdbd_config_resp_users_inner,
+                })
+
+            return response
+        except Exception as e:
+            print(f"An error occurred while creating user {username}: {e}")
+    
+    def post_account(self, account_name, organization):
+        try:
+            account_body = {
+                "name": account_name,
+                "organization": organization,
+                "description": "Created via LDAP sync script"
+            }
+            response = self.slurmdb_api.slurmdb_v0041_post_accounts({"accounts":[account_body]})
+            return response
+        except Exception as e:
+            print(f"An error occurred while creating account {account_name}: {e}")
+
+    def post_association(self, username, accounts, cluster="nanoscope"):
+        try:
+            v0041_assoc_default={
+                "qos":"normal"
+            }
+            v0041_assoc=[{
+                "account":account_name,
+                "cluster":cluster,
+                "default":v0041_assoc_default,
+                "user":username
+            }
+            for account_name in accounts]
+            v0041_openapi_assocs_resp = {
+                "associations":v0041_assoc
+            }
+            response = self.slurmdb_api.slurmdb_v0041_post_associations(v0041_openapi_assocs_resp)
+            return response
+        except Exception as e:
+            print(f"An error occurred while creating association of user {username} with account {accounts}: {e}")      
+    
+
+    def post_account_association(self, username, accountnames, cluster="nanoscope", deparendt_account="nextmol",organization="nextmol"):
+        try:
+                   # "parent_account": None if account_name == parent_account else parent_account,
+            slurmdb_v0041_post_users_association_request_association_condition_association={
+                "comment": "Created via LDAP sync script",
+                "defaultqos":"normal"
+            }
+            slurmdb_v0041_post_accounts_association_request_account={
+                "Description": "Created via LDAP sync script",
+                "organization": organization
+            }
+            slurmdb_v0041_post_accounts_association_request_association_condition={
+                "accounts": accountnames,
+                "association":slurmdb_v0041_post_users_association_request_association_condition_association
+            }
+            slurmdb_v0041_post_accounts_association_request={
+                "association_condition": slurmdb_v0041_post_accounts_association_request_association_condition,
+                "account":slurmdb_v0041_post_accounts_association_request_account
+            }
+            response=self.slurmdb_api.slurmdb_v0041_post_accounts_association(slurmdb_v0041_post_accounts_association_request=slurmdb_v0041_post_accounts_association_request)
+            return response
+        except Exception as e:
+            print(f"An unexpected error occurred during API communication: {e}")
+            return None
+    
+    def post_user_association(self, username, accountnames, cluster="nanoscope", defaultaccount="nextmol",organization="nextmol"):
+        try:
+            slurmdb_v0041_post_users_association_request_association_condition_association={
+                "comment": "Created via LDAP sync script",
+                "defaultqos":"normal"
+            }
+            slurmdb_v0041_post_users_association_request_association_condition={
+                "accounts": accountnames,
+                "clusters": [cluster],
+                "association":slurmdb_v0041_post_users_association_request_association_condition_association,
+                "users":[username]
+            }
+            slurmdb_v0041_post_users_association_request_user={
+                "defaultaccount": defaultaccount
+            }
+
+            slurmdb_v0041_post_users_association_request={
+                "association_condition": slurmdb_v0041_post_users_association_request_association_condition,
+                "user": slurmdb_v0041_post_users_association_request_user
+            }
+            response=self.slurmdb_api.slurmdb_v0041_post_users_association(slurmdb_v0041_post_users_association_request=slurmdb_v0041_post_users_association_request)
+            return response
+        except Exception as e:
+            print(f"An unexpected error occurred during API communication: {e}")
+            return None
+        
+        
+    def delete_user(self, username):
+        try:
+            response = self.slurmdb_api.slurmdb_v0041_delete_user(user=username)
+            return response
+        except Exception as e:
+            print(f"An error occurred while deleting user {username}: {e}")
+
+    def delete_account(self, account_name): 
+        try:
+            response = self.slurmdb_api.slurmdb_v0041_delete_account(account=account_name)
+            return response
+        except Exception as e:
+            print(f"An error occurred while deleting account {account_name}: {e}")
+    
+    def delete_account_association(self, username, account_name):
+        try:
+            response = self.slurmdb_api.slurmdb_v0041_delete_association(user=username, account=account_name)
+            return response
+        except Exception as e:
+            print(f"An error occurred while deleting association of user {username} with account {account_name}: {e}")
+    
+    

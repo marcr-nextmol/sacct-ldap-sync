@@ -1,178 +1,9 @@
-from ldap3 import Server, Connection, ALL, NTLM, SUBTREE
-import requests
-import json
-import os
-import sys
-import openapi_client
-import subprocess
-from typing import List, Optional
-from openapi_client.api.slurm_api import SlurmApi 
-from openapi_client.api.slurmdb_api import SlurmdbApi 
-from openapi_client import ApiClient as Client 
-from openapi_client import Configuration as Config
-from openapi_client.models.v0041_openapi_users_resp import V0041OpenapiUsersResp
-from openapi_client.models.v0041_openapi_accounts_resp import V0041OpenapiAccountsResp 
-from openapi_client.models.v0041_openapi_resp import V0041OpenapiResp
+from asyncio import subprocess
+import ldaplib
+import SlurmAccountManagerV41
 
 
 
-######## Configuration####################
-LDAP_SERVER = 'ldap://localhost'
-BASE_DN = 'DC=nextmol,DC=local'
-BASE_URL = "http://10.0.0.2:6820"
-CLUSTER = "nanoscope"
-ORG = "nextmol"
-exceptions_list = [ "easybuild","root" ]
-
-############################################
-
-
-def get_openldap_users_and_groups():
-    server = Server(LDAP_SERVER, get_info=ALL)
-
-    conn = Connection(server,auto_bind=True)
-    conn.search(
-        search_base=BASE_DN,
-        search_filter='(objectClass=posixGroup)',  
-        search_scope=SUBTREE,
-        attributes=['cn', 'gidNumber']  
-    )
-
-    group_dict=dict()
-    
-    for entry in conn.entries:
-        if 'gidNumber' in entry and 'cn' in entry:
-            if entry.gidNumber.value is not None and entry.cn.value is not None:
-                group_dict[entry.gidNumber.value] = entry.cn.value
-    conn.search(
-        search_base=BASE_DN,
-        search_filter='(objectClass=posixAccount)',
-        search_scope=SUBTREE,
-        attributes=['uid', 'gidNumber']
-    )
-    user_dict=dict()
-    for entry in conn.entries:
-        if 'uid' in entry and 'gidNumber' in entry:
-            if entry.uid.value is not None and entry.gidNumber.value is not None:
-                user_dict[entry.uid.value] = entry.gidNumber.value
-    result_dict = dict()
-    for user, gid in user_dict.items():
-        if gid not in group_dict:   
-            continue
-        if group_dict[gid] in result_dict:
-            result_dict[group_dict[gid]].append(user)
-        else:
-            result_dict[group_dict[gid]] = [user]
-    conn.unbind()
-    return result_dict 
-
-
-
-def get_ldap_users_by_secondary_group():
-    server = Server(LDAP_SERVER, get_info=ALL)
-
-    conn = Connection(server,auto_bind=True)
-    conn.search(
-        search_base=BASE_DN,
-        search_filter='(objectClass=posixGroup)',  
-        search_scope=SUBTREE,
-        attributes=['cn', 'memberUid']  
-    )
-
-    user_dict=dict()
-    for entry in conn.entries:
-        group_name = entry.cn.value
-        members = entry.memberUid.values if 'memberUid' in entry else []
-        if members:
-            user_dict[group_name] = [m for m in members]
-            
-    conn.unbind()
-    return user_dict 
-def get_ldap_users_by_group():
-    primary_groups = get_openldap_users_and_groups()
-    secondary_groups = get_ldap_users_by_secondary_group()
-    combined_groups = {}
-    for group, users in primary_groups.items():
-        combined_groups[group] = users.copy()
-    for group, users in secondary_groups.items():
-        if group not in combined_groups:
-            combined_groups[group] = []
-        combined_groups[group].extend(users)
-    for group, users in combined_groups.items():
-        combined_groups[group] = list(set(users))
-    return combined_groups
-
-def get_ldap_users():
-    server = Server(LDAP_SERVER, get_info=ALL)
-    all_users = []
-
-    conn = Connection(server,auto_bind=True)
-    conn.search(
-        search_base=BASE_DN,
-        search_filter='(objectClass=posixAccount)',  
-        attributes=['uid', 'cn'] 
-    )
-
-    for entry in conn.entries:
-        if 'uid' in entry:
-            all_users.append(entry.uid.value)
-            
-    conn.unbind()
-    return all_users
-
-
-def get_groups_by_user(groups: dict ):
-    user_group = {}
-    for group, users in groups.items():
-        for user in users:
-            user_group.setdefault(user, []).append(group)
-    return user_group
- 
-def get_ldap_users_description(user):
-    server = Server(LDAP_SERVER, get_info=ALL)
-    #conn = Connection(server, user=LDAP_USER, password=LDAP_PASSWORD, authentication=NTLM, auto_bind=True)
-
-    conn = Connection(server,auto_bind=True)
-    conn.search(
-        search_base=BASE_DN,
-        search_filter=f'(uid={user})', 
-        search_scope=SUBTREE,
-        attributes=['cn', 'description']
-    )
-    description=""
-    
-    for entry in conn.entries:       
-        description = f"{entry.description}"
-    
-    conn.unbind()
-
-    return user,description
-
-
-def is_account_in_slurm(accounts: List[V0041OpenapiAccountsResp],group: str ) -> bool :
-    if group in [account.name for account in accounts.accounts ]:
-        return True
-    return False
-
-def is_user_in_slurm(slurm_users: List[V0041OpenapiUsersResp],user: str ) -> bool :
-    if user in [slurm_user.name for slurm_user in slurm_users.users ]:
-        return True
-    return False
-
-
-def is_user_in_ldap(ldap_users: list ,user: str, exceptions_list: list = []) -> bool :
-    list_users = ldap_users + exceptions_list
-    if user in list_users:
-        return True
-    return False
-
-def is_account_in_ldap(ldap_groups: dict ,group: str, exceptions_list: list = []) -> bool :
-    list_group = [ ldap_group for  ldap_group, ldap_users in ldap_groups.items()] + exceptions_list
-    if group in list_group:
-        return True
-    return False
-    
-    
 def gen_token():
     c_access_token = None
     try:
@@ -202,123 +33,58 @@ def gen_token():
         print(f"An unexpected error occurred: {e}")
     finally:
         return c_access_token
-
-def add_user(user: str, account: str) -> V0041OpenapiResp:
-    try:
-        print(f"create user {user} > account {account}")
-        response=None
-        V0041_openapi_users_resp = {
-            "users":[{
-                "name":user,
-                "associations":[{
-                    "account":account,
-                    "cluster":CLUSTER,
-                    "user":user,
-                }]                   
-            }]
-        }
-        response=slurmdb.slurmdb_V0041_post_users(V0041_openapi_users_resp=V0041_openapi_users_resp)      
-    except Exception as e:
-        print(f"Error adding user {e}")
-    finally: 
-        return response
-
-def del_user(user: str) -> V0041OpenapiResp:
-    try:
-        print(f"Delete user {user}")
-        response=None
-        response=slurmdb.slurmdb_V0041_delete_user(user)      
-    except Exception as e:
-        print(f"Error adding user {e}")
-    finally: 
-        return response
-
-def add_account(group: str) -> V0041OpenapiResp:
-    try:
-        print(f"Create account {group}")
-        response=None
-        V0041_openapi_accounts = {
-            "accounts": [
-                {
-                "name": group,
-                "description": f"Account for {group}",
-                "organization": ORG,
-                }
-            ]
-        }
-        response=slurmdb.slurmdb_V0041_post_accounts(V0041_openapi_accounts_resp=V0041_openapi_accounts)
-    except Exception as e:
-        print(f"Error adding ACCOUNT {e}")
-    finally: 
-        return response
-
-def del_account(account: str) -> V0041OpenapiResp:
-    print(f"Delete  account {account}")
-
-    try:
-        response=None
-        response=slurmdb.slurmdb_V0041_delete_account(account)      
-    except Exception as e:
-        print(f"Error adding user {e}")
-    finally: 
-        return response
+    
+    
+def create_slurm_accounts_from_ldap(ldap,slurm,excetionlist=["root"],organization="nextmol"):
+    ldap = ldaplib.ldaplib()
+    groups = ldap.get_groups_list()
+    for group in groups:
+        if group not in excetionlist:
+            account_name=group[0]
+            if not account_name:
+                print(f"  - No groups found for group {account_name}, skipping Slurm account creation.")
+            else:
+                slurm_account=slurm.post_account(account_name, organization)
+                print(f"Slurm account creation response: {slurm_account.errors}")
 
 
-def add_association(user: str, group: str) -> V0041OpenapiResp:
-    print(f" create association user {user} . account {group}")
-    try:
-       
-        response=None
-        OpenapiUsersResp= {"associations":[{'account': group,
-            'cluster': CLUSTER,
-            'user': user,
-            'parent_account':ORG,           
-            }],
-        }
-        response=slurmdb.slurmdb_V0041_post_associations(V0041_openapi_assocs_resp=OpenapiUsersResp)
-    except Exception as e:
-        print(f"Error adding ACCOUNT {e}")
-    finally: 
-        return response
+def create_slurm_association(ldap,slurm,excetionlist=["root","easybuild"],organization="nextmol"):
+    ldap = ldaplib.ldaplib()
+    users = ldap.get_users_list()
+    user_list = list(map(lambda x: x[0], users))
+    clean_userlist=list(set(user_list)-set(excetionlist))   
+    for username in clean_userlist:
+        groups=[group for group,gid in ldap.get_all_groups_from_user(username)]
+        print(f"User {username} has groups: {groups}")
+
+        create_association=slurm.post_association(username,groups)
+        print(f"Slurm association creation response: {create_association}")
+        slurm_account=slurm.post_user(username,groups)
+        print(f"Slurm user creation response: {slurm_account}")
+        create_account_association=slurm.post_account_association(username,groups)
+        print(f"Slurm account association creation response: {create_account_association}")
+        create_user_association=slurm.post_user_association(username,groups)
+        print(f"Slurm user association creation response: {create_user_association}")
+    print(slurm.get_associations_list(self):
+)
+
+
+
+    
+
+def main():
+    exceptions=["easybuild","root"]
+    slurm=SlurmAccountManagerV41.SlurmAccountManagerV41(jwt_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjM2OTUyNzcsImlhdCI6MTc2MjY5NTI3Nywic3VuIjoicm9vdCJ9.WAhHs3cN2QZ_-NvDmvKPbiPpxh6iPv8iDlBuklktatY")
+    ldap = ldaplib.ldaplib()
+    create_slurm_accounts_from_ldap(ldap,slurm)
+    create_slurm_association(ldap,slurm,exceptions)
+    
+
+
+
+
 
 
 if __name__ == "__main__":
-    c = Config()
-    c.host = BASE_URL
-    slurm = SlurmApi(Client(c))
-    slurmdb = SlurmdbApi(Client(c))
-    
-    dict_groups = get_ldap_users_by_group()
-    dict_users = get_groups_by_user(dict_groups)
-    list_ldap_users = get_ldap_users()
 
-    c.access_token = gen_token()
-    
-    slurm_users = slurmdb.slurmdb_V0041_get_users()
-    slurm_list_users = [slurm_user.name for slurm_user in slurm_users.users ]
-    slurm_accounts = slurmdb.slurmdb_V0041_get_accounts()
-    
-    for user, list_of_accounts in dict_users.items():
-        if not (is_user_in_slurm(slurm_users,user)):
-            for account in list_of_accounts:
-                response=add_user(user,account)
-
-    for slurm_user in slurm_list_users:  
-        if not is_user_in_ldap(list_ldap_users, slurm_user, exceptions_list):
-            del_user(slurm_user)
-            print(f"User {slurm_user} deleted" )
-
-
-    for group, users_list in dict_groups.items():      
-        if not is_account_in_ldap(dict_groups, group, exceptions_list):
-            del_user(group)
-            print(f"Account {group} deleted" )
-
-        for user in users_list:
-            response_account = add_account(group)
-            response_assoc = add_association(user,group)
-
-
-
-
-
+    main()
