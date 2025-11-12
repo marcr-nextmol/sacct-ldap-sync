@@ -1,15 +1,10 @@
-from ldap3 import Server, Connection, ALL, NTLM, SUBTREE
-from collections import defaultdict
+from ldap3 import Server, Connection, ALL, SUBTREE
 
 class ldaplib:
     
-    def __init__(self):
-        self.LDAP_SERVER = 'ldap://localhost'
-        self.BASE_DN = 'DC=nextmol,DC=local'
-        self.BASE_URL = "http://10.0.0.12:6820"
-        self.CLUSTER = "nanoscope"
-        self.ORG = "nextmol"
-        self.exceptions_list = [ "easybuild","root" ]
+    def __init__(self,LdapServer='ldap://localhost',BaseDN='DC=nextmol,DC=local',):
+        self.LDAP_SERVER = LdapServer
+        self.BASE_DN = BaseDN
         server = Server(self.LDAP_SERVER, get_info=ALL)
         self.conn = Connection(server,auto_bind=True)
 
@@ -92,12 +87,18 @@ class ldaplib:
         except Exception as e:
             print(f"An error occurred while retrieving groups for user {username}: {e}")
             return None
+    
+    def get_tuple_user_info(self, username):
+        try:
+            grouplist=self.get_all_groups_from_user(username)
+            if grouplist is None:
+                return None 
+            return [(username,group)for group in grouplist]
+        except Exception as e:  
+            print(f"An error occurred while retrieving tuple user info for user {username}: {e}")
+            return None
+                       
         
-        
-        
-
-
-
     def __del__(self):
         self.conn.unbind()
 

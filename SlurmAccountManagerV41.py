@@ -1,13 +1,19 @@
-import subprocess
-from openapi_client import ApiClient, Configuration
+from openapi_client import Configuration
 from openapi_client.api.slurmdb_api import SlurmdbApi
 from openapi_client.api.slurm_api import SlurmApi
 from openapi_client import ApiClient as Client 
+from openapi_client import ApiException
 
-
-import json
-from pprint import pprint
-
+class AssociationExistsError(Exception):
+    def __init__(self, message, username, accountnames):
+        self.username = username
+        self.accountnames = accountnames
+        message = (
+            f"{message}: User '{self.username}' is already associated with accounts "
+            f"{', '.join(self.accountnames)}"
+        )
+        super().__init__(message)
+        
 class SlurmAccountManagerV41:
     def __init__(self, api_url="http://10.0.0.13:6820", jwt_token=""):
         slurm_config = Configuration()
@@ -37,20 +43,24 @@ class SlurmAccountManagerV41:
         except Exception as e:
             print(f"An error occurred while listing users: {e}")
     
-    def post_user(self, username, associations=[],defautl_account="nextmol",cluster="nanoscope"):
+    def post_user(self, username):
         try:
           
             v0041_openapi_slurmdbd_config_resp_users_inner = [
                 {
                  "name": username,
-                 "account":defautl_account,
                 }]
-            print(f"Creating user {username} with associations: {v0041_openapi_slurmdbd_config_resp_users_inner}")
             response = self.slurmdb_api.slurmdb_v0041_post_users( {
                 "users": v0041_openapi_slurmdbd_config_resp_users_inner,
                 })
 
             return response
+        except ApiException as e:  
+            if e.status == 304:
+                raise AssociationExistsError("User already existed.",username, []) from e  
+            else:
+                print(f"An unexpected API error occurred during user creation: {e}")
+                return None
         except Exception as e:
             print(f"An error occurred while creating user {username}: {e}")
     
@@ -63,8 +73,15 @@ class SlurmAccountManagerV41:
             }
             response = self.slurmdb_api.slurmdb_v0041_post_accounts({"accounts":[account_body]})
             return response
+        except ApiException as e:  
+            if e.status == 304:
+                raise AssociationExistsError("Account already existed.",account_name, organization) from e  
+            else:
+                print(f"An unexpected API error occurred during account creation: {e}")
+                return None
         except Exception as e:
             print(f"An error occurred while creating account {account_name}: {e}")
+            return None
 
     def post_association(self, username, accounts, cluster="nanoscope"):
         try:
@@ -83,13 +100,17 @@ class SlurmAccountManagerV41:
             }
             response = self.slurmdb_api.slurmdb_v0041_post_associations(v0041_openapi_assocs_resp)
             return response
+        except ApiException as e: 
+            if e.status == 304:
+                raise AssociationExistsError("Association already existed.",username, accounts) from e           
+            else:
+                print(f"An unexpected API error occurred during association creation: {e}") 
         except Exception as e:
             print(f"An error occurred while creating association of user {username} with account {accounts}: {e}")      
     
 
-    def post_account_association(self, username, accountnames, cluster="nanoscope", deparendt_account="nextmol",organization="nextmol"):
+    def post_account_association(self, username, accountnames,organization="nextmol"):
         try:
-                   # "parent_account": None if account_name == parent_account else parent_account,
             slurmdb_v0041_post_users_association_request_association_condition_association={
                 "comment": "Created via LDAP sync script",
                 "defaultqos":"normal"
@@ -108,11 +129,18 @@ class SlurmAccountManagerV41:
             }
             response=self.slurmdb_api.slurmdb_v0041_post_accounts_association(slurmdb_v0041_post_accounts_association_request=slurmdb_v0041_post_accounts_association_request)
             return response
+        
+        except ApiException as e: 
+            if e.status == 304:
+                raise AssociationExistsError("Association already existed.",username, accountnames) from e           
+            else:
+                print(f"An unexpected API error occurred during association creation: {e}")
+                return None
         except Exception as e:
             print(f"An unexpected error occurred during API communication: {e}")
             return None
     
-    def post_user_association(self, username, accountnames, cluster="nanoscope", defaultaccount="nextmol",organization="nextmol"):
+    def post_user_association(self, username, accountnames, cluster="nanoscope", defaultaccount="nextmol"):
         try:
             slurmdb_v0041_post_users_association_request_association_condition_association={
                 "comment": "Created via LDAP sync script",
@@ -134,6 +162,12 @@ class SlurmAccountManagerV41:
             }
             response=self.slurmdb_api.slurmdb_v0041_post_users_association(slurmdb_v0041_post_users_association_request=slurmdb_v0041_post_users_association_request)
             return response
+        except ApiException as e: 
+            if e.status == 304:
+                raise AssociationExistsError("Association already existed.",username, accountnames) from e           
+            else:
+                print(f"An unexpected API error occurred during association creation: {e}")
+                return None
         except Exception as e:
             print(f"An unexpected error occurred during API communication: {e}")
             return None
@@ -141,7 +175,7 @@ class SlurmAccountManagerV41:
         
     def delete_user(self, username):
         try:
-            response = self.slurmdb_api.slurmdb_v0041_delete_user(user=username)
+            response = self.slurmdb_api.slurmdb_v0041_delete_user(username)
             return response
         except Exception as e:
             print(f"An error occurred while deleting user {username}: {e}")
@@ -153,11 +187,10 @@ class SlurmAccountManagerV41:
         except Exception as e:
             print(f"An error occurred while deleting account {account_name}: {e}")
     
-    def delete_account_association(self, username, account_name):
+    def delete_association(self, username, account_name):
         try:
-            response = self.slurmdb_api.slurmdb_v0041_delete_association(user=username, account=account_name)
+            response = self.slurmdb_api.slurmdb_v0041_delete_association(user=[username], account=[account_name])
             return response
         except Exception as e:
             print(f"An error occurred while deleting association of user {username} with account {account_name}: {e}")
-    
     
