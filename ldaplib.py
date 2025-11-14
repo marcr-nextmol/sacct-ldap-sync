@@ -93,7 +93,7 @@ class ldaplib:
             grouplist=self.get_all_groups_from_user(username)
             if grouplist is None:
                 return None 
-            return [(username,group)for group in grouplist]
+            return [(username,group)for group,_ in grouplist]
         except Exception as e:  
             print(f"An error occurred while retrieving tuple user info for user {username}: {e}")
             return None

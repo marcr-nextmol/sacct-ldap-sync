@@ -32,7 +32,8 @@ class SlurmAccountManagerV41:
     def get_associations_list(self):
         try:
             associations = self.slurmdb_api.slurmdb_v0041_get_associations()
-            return [(assoc.user,assoc.account) for assoc in associations.associations]
+            return [(assoc.user, assoc.account) for assoc in associations.associations
+                     if assoc.user and assoc.user.strip() != '']
         except Exception as e:
             print(f"An error occurred while listing associations: {e}")
     
@@ -57,7 +58,7 @@ class SlurmAccountManagerV41:
             return response
         except ApiException as e:  
             if e.status == 304:
-                raise AssociationExistsError("User already existed.",username, []) from e  
+                raise AssociationExistsError("User already exist.",username, []) from e  
             else:
                 print(f"An unexpected API error occurred during user creation: {e}")
                 return None
@@ -75,7 +76,7 @@ class SlurmAccountManagerV41:
             return response
         except ApiException as e:  
             if e.status == 304:
-                raise AssociationExistsError("Account already existed.",account_name, organization) from e  
+                raise AssociationExistsError("Account already exist.",account_name, organization) from e  
             else:
                 print(f"An unexpected API error occurred during account creation: {e}")
                 return None
@@ -83,7 +84,7 @@ class SlurmAccountManagerV41:
             print(f"An error occurred while creating account {account_name}: {e}")
             return None
 
-    def post_association(self, username, accounts, cluster="nanoscope"):
+    def post_association(self, username:str, accounts:list, cluster="nanoscope"):
         try:
             v0041_assoc_default={
                 "qos":"normal"
@@ -102,14 +103,14 @@ class SlurmAccountManagerV41:
             return response
         except ApiException as e: 
             if e.status == 304:
-                raise AssociationExistsError("Association already existed.",username, accounts) from e           
+                raise AssociationExistsError("Association already exist.",username, accounts) from e           
             else:
                 print(f"An unexpected API error occurred during association creation: {e}") 
         except Exception as e:
             print(f"An error occurred while creating association of user {username} with account {accounts}: {e}")      
     
 
-    def post_account_association(self, username, accountnames,organization="nextmol"):
+    def post_account_association(self, username:str, accountnames:list,organization="nextmol"):
         try:
             slurmdb_v0041_post_users_association_request_association_condition_association={
                 "comment": "Created via LDAP sync script",
@@ -127,12 +128,14 @@ class SlurmAccountManagerV41:
                 "association_condition": slurmdb_v0041_post_accounts_association_request_association_condition,
                 "account":slurmdb_v0041_post_accounts_association_request_account
             }
-            response=self.slurmdb_api.slurmdb_v0041_post_accounts_association(slurmdb_v0041_post_accounts_association_request=slurmdb_v0041_post_accounts_association_request)
+            response=self.slurmdb_api.slurmdb_v0041_post_accounts_association(
+                slurmdb_v0041_post_accounts_association_request=slurmdb_v0041_post_accounts_association_request)
             return response
         
         except ApiException as e: 
             if e.status == 304:
-                raise AssociationExistsError("Association already existed.",username, accountnames) from e           
+                print(e)
+                raise AssociationExistsError("Association already exist.",username, accountnames) from e           
             else:
                 print(f"An unexpected API error occurred during association creation: {e}")
                 return None
@@ -164,7 +167,8 @@ class SlurmAccountManagerV41:
             return response
         except ApiException as e: 
             if e.status == 304:
-                raise AssociationExistsError("Association already existed.",username, accountnames) from e           
+                print(e)
+                raise AssociationExistsError("Association already exist.",username, accountnames) from e           
             else:
                 print(f"An unexpected API error occurred during association creation: {e}")
                 return None
@@ -189,7 +193,7 @@ class SlurmAccountManagerV41:
     
     def delete_association(self, username, account_name):
         try:
-            response = self.slurmdb_api.slurmdb_v0041_delete_association(user=[username], account=[account_name])
+            response = self.slurmdb_api.slurmdb_v0041_delete_association(user=username, account=account_name)
             return response
         except Exception as e:
             print(f"An error occurred while deleting association of user {username} with account {account_name}: {e}")
