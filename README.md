@@ -13,6 +13,10 @@ This Python script facilitates the synchronization of user and group (account) i
 * Association Management: Creates or updates user-account associations in SlurmDB.
 * Slurm Token Generation: Automatically generates a Slurm JWT token for API authentication.
 
+# Execution
+
+main.py  <config_file>
+
 # NOTES 
 
 * Slurm REST API Client: The script assumes you have a generated Python client for the Slurm REST API. This client typically comes from an OpenAPI/Swagger specification of the Slurm REST API. You'll need to generate this client and ensure it's accessible in your Python environment.
@@ -33,5 +37,14 @@ Config file is a yaml format config file with next parameters
 * * SlurmJWTToken: Slurm token create with scontrol token lifespan=INFINITE (str)
 * * LdapServer : Ldap server url 'ldap://localhost' 
 * * LdapBaseDN : ldap base DN 'DC=mydomain,DC=local'
-* * LoggingLevel: login level only accepted "INFO", "DEBUG"
+* * LoggingLevel: login level only accepted "INFO", "DEBUG","ERROR"
 
+# TODO
+
+* Add Coordinator and Operator Admin levels
+* Create QOS
+* Add parameters in associations like limits
+* Select default acount by user
+* Delete Accounts
+* Delete associations
+* Delete QOS

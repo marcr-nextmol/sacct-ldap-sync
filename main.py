@@ -7,6 +7,8 @@ import yaml
 import sys
 import logging
 from typing import List, Dict, Tuple, Optional, Any
+import click
+
 
 # Configure logging at module level
 logger = logging.getLogger(__name__)
@@ -186,9 +188,6 @@ def create_users(ldap: Any, slurm: Any, admin_users: list[str], exception_list: 
         user_list = [user[0] for user in users]
         clean_userlist = set(user_list) - set(exception_list)
         admin_level=False
-        slurm_users = slurm.get_users_list()
-        slurm_usernames = [user[0] for user in slurm_users]
-        print(clean_userlist)
         for username in clean_userlist:
                 admin_level="None"
                 logger.info("Creating Slurm user %s", username)
@@ -326,18 +325,26 @@ def read_config(config_file: str) -> Optional[Dict[str, Any]]:
         logger.error("Unexpected error reading '%s': %s", config_file, e)
         return None
 
-def main() -> int:
+@click.command()
+@click.argument('config_file', type=click.Path(exists=True))
+def main(config_file:str="config.yaml") -> int:
     """
     Main function to execute the LDAP and Slurm synchronization process.
     """
-    config = read_config("config.yaml")
+
+    config = read_config(config_file=config_file)
     
     if not config:
         logger.error("Failed to read configuration. Exiting.")
         return 1
     
     # Configure logging level
-    log_level = logging.DEBUG if config.get("LoggingLevel") == "DEBUG" else logging.INFO
+    dict_log_level=dict()
+    dict_log_level["DEBUG"]=logging.DEBUG 
+    dict_log_level["INFO"]=logging.INFO
+    dict_log_level["ERROR"]=logging.ERROR
+
+    log_level = dict_log_level[config.get("LoggingLevel")]
     logger.setLevel(log_level)
     logger.debug("Configuration: %s", config)
     
@@ -371,19 +378,19 @@ def main() -> int:
         )
         
         # Create Slurm associations
-      #  create_slurm_association(
-      #      ldap, slurm,
-       #     user_exception_list=no_ldap_users,
-        #    accounts_exception_list=no_ldap_users,
-         #   extra_association_list=extra_associations,
-          #  organization=config.get("DefaultOrganization", DEFAULT_ORGANIZATION)
-       #)
+        create_slurm_association(
+            ldap, slurm,
+            user_exception_list=no_ldap_users,
+            accounts_exception_list=no_ldap_users,
+            extra_association_list=extra_associations,
+            organization=config.get("DefaultOrganization", DEFAULT_ORGANIZATION)
+       )
         # Delete Slurm users not in LDAP        
-        #delete_users(ldap, slurm, exception_list=no_ldap_users)
+        delete_users(ldap, slurm, exception_list=no_ldap_users)
         # Delete Slurm associations not in LDAP
-       # delete_association(ldap, slurm, 
-                    #       exception_assoc_list=extra_associations,
-                     #      exception_userlist=no_ldap_users)
+        delete_association(ldap, slurm, 
+                           exception_assoc_list=extra_associations,
+                           exception_userlist=no_ldap_users)
         
         logger.info("LDAP-Slurm synchronization completed successfully")
         return 0
