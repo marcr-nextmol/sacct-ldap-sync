@@ -3,6 +3,14 @@ from openapi_client.api.slurmdb_api import SlurmdbApi
 from openapi_client.api.slurm_api import SlurmApi
 from openapi_client import ApiClient as Client 
 from openapi_client import ApiException
+from enum import Enum
+from typing import Optional, List
+
+
+class AdminLevel(Enum):
+    ADMIN = "Administrator"
+    OPERATOR = "Operator"
+    NONE = "None"
 
 class AssociationExistsError(Exception):
     def __init__(self, message, username, accountnames):
@@ -44,17 +52,17 @@ class SlurmAccountManagerV41:
         except Exception as e:
             print(f"An error occurred while listing users: {e}")
     
-    def post_user(self, username):
+    def post_user(self, username:str, admin_level: Optional[AdminLevel] = None):
         try:
           
             v0041_openapi_slurmdbd_config_resp_users_inner = [
                 {
                  "name": username,
+                 "administrator_level": [admin_level],
                 }]
             response = self.slurmdb_api.slurmdb_v0041_post_users( {
                 "users": v0041_openapi_slurmdbd_config_resp_users_inner,
                 })
-
             return response
         except ApiException as e:  
             if e.status == 304:

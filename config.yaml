@@ -22,6 +22,10 @@ ExtraLDAPUserAssociations:
    - user: "prod_platform"
      accounts:
         - "interactive"
+AdminUsersList:
+   - root
+   - mrodriguez
+
 SlurmAPIURL: "http://10.0.0.13:6820"
 SlurmJWTToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjM5MTA0NDExMDEsImlhdCI6MTc2Mjk1NzQ1NSwic3VuIjoicm9vdCJ9.AhGmOLDx3jZgzgkC3cLEzd866CTCksk6hjqIZ6n_d_w"
 LdapServer : 'ldap://localhost'

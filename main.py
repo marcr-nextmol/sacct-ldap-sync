@@ -132,6 +132,7 @@ def create_slurm_association(ldap: Any, slurm: Any, user_exception_list: List[st
         
         for username in clean_userlist:
             groups = _get_user_groups(ldap, username, accounts_exception_list, extra_associations)
+            safe_username = _ensure_string_param(username, 'username')
 
             if not groups:
                 continue
@@ -141,12 +142,11 @@ def create_slurm_association(ldap: Any, slurm: Any, user_exception_list: List[st
             for group in groups:
                 existing_associations = set(slurm.get_associations_list())
                 association_key = (username, group)
-                
+                safe_group = _ensure_string_param(group, 'group')   
+
                 if association_key not in existing_associations:
                     logger.info("Creating Slurm association for user %s and account %s", username, group)   
                     
-                    safe_username = _ensure_string_param(username, 'username')
-                    safe_group = _ensure_string_param(group, 'group')   
 
                     # Create account association           
                     slurm_accounts=[account for account,_ in slurm.get_accounts_list()]
@@ -173,6 +173,38 @@ def create_slurm_association(ldap: Any, slurm: Any, user_exception_list: List[st
                     
     except Exception as e:
         logger.error("An error occurred during association creation: %s", e)
+
+
+def create_users(ldap: Any, slurm: Any, admin_users: list[str], exception_list: List[str] = None) -> None:  
+    """
+    Creates Slurm users based on LDAP users, excluding specified exceptions.
+    """
+    if exception_list is None:
+        exception_list = DEFAULT_EXCEPTIONS.copy()
+    try:
+        users = ldap.get_users_list()
+        user_list = [user[0] for user in users]
+        clean_userlist = set(user_list) - set(exception_list)
+        admin_level=False
+        slurm_users = slurm.get_users_list()
+        slurm_usernames = [user[0] for user in slurm_users]
+        print(clean_userlist)
+        for username in clean_userlist:
+                admin_level="None"
+                logger.info("Creating Slurm user %s", username)
+                try:
+                    if username in admin_users:
+                        logger.info("Assigning admin privileges to user %s", username)
+                        admin_level="Administrator"
+                    safe_username = _ensure_string_param(username, 'username')
+                    create_response = slurm.post_user(safe_username,admin_level=admin_level)
+                    logger.debug("Slurm user creation response: %s", create_response)
+                except Exception as e:
+                    if not _handle_slurm_api_error(e, f"user creation for {username}"):
+                        logger.error("Error creating user %s: %s", username, e)
+                    
+    except Exception as e:
+        logger.error("An error occurred during user creation: %s", e)   
 
 def delete_users(ldap: Any, slurm: Any, exception_list: List[str] = None) -> None:
     """
@@ -326,24 +358,32 @@ def main() -> int:
         # Get configuration values with defaults
         no_ldap_users = config.get("NoLDAPUsersList", DEFAULT_EXCEPTIONS.copy())
         extra_associations = config.get("ExtraLDAPUserAssociations", [])
+        api_url = config.get("SlurmAPIURL", "http://localhost:6820")
         
         if isinstance(no_ldap_users, str):
             no_ldap_users = [no_ldap_users]
+
+        # Create Slurm users
+        create_users(
+            ldap, slurm,
+            admin_users=config.get("AdminUsersList", []),
+            exception_list=no_ldap_users
+        )
         
         # Create Slurm associations
-        create_slurm_association(
-            ldap, slurm,
-            user_exception_list=no_ldap_users,
-            accounts_exception_list=no_ldap_users,
-            extra_association_list=extra_associations,
-            organization=config.get("DefaultOrganization", DEFAULT_ORGANIZATION)
-        )
+      #  create_slurm_association(
+      #      ldap, slurm,
+       #     user_exception_list=no_ldap_users,
+        #    accounts_exception_list=no_ldap_users,
+         #   extra_association_list=extra_associations,
+          #  organization=config.get("DefaultOrganization", DEFAULT_ORGANIZATION)
+       #)
         # Delete Slurm users not in LDAP        
-        delete_users(ldap, slurm, exception_list=no_ldap_users)
+        #delete_users(ldap, slurm, exception_list=no_ldap_users)
         # Delete Slurm associations not in LDAP
-        delete_association(ldap, slurm, 
-                           exception_assoc_list=extra_associations,
-                           exception_userlist=no_ldap_users)
+       # delete_association(ldap, slurm, 
+                    #       exception_assoc_list=extra_associations,
+                     #      exception_userlist=no_ldap_users)
         
         logger.info("LDAP-Slurm synchronization completed successfully")
         return 0
