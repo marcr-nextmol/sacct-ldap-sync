@@ -1,7 +1,9 @@
 [project]
-name = "sacct-ldap-sync-1"
-version = "0.1.0"
-description = "Add your description here"
+name = "sacctldapsync"
+version = "1.0.41"
+description = "Slurm LDAP sync tool"
+authors = [{name = "Marc rodriguez", email = "marc.rodriguez@nextmol.com"}]
+license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -14,3 +16,10 @@ dependencies = [
 ]
 [tool.uv.sources]
 openapi-client = { path = "py_slurm_client" }
+
+[project.scripts]
+sacctladpsync = "sacctldapsync:sacctldapsync"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sacctldapsync*"]
