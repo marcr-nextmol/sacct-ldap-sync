@@ -48,3 +48,4 @@ Config file is a yaml format config file with next parameters
 * Delete Accounts
 * Delete associations
 * Delete QOS
+* Add ldap autentificacion 
