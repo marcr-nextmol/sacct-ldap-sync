@@ -39,6 +39,8 @@ Config file is a yaml format config file with next parameters
 * * LdapBaseDN : ldap base DN 'DC=mydomain,DC=local'
 * * LoggingLevel: login level only accepted "INFO", "DEBUG","ERROR"
 
+# BUILD RPM
+
 # TODO
 
 * Add Coordinator and Operator Admin levels
@@ -49,3 +51,5 @@ Config file is a yaml format config file with next parameters
 * Delete associations
 * Delete QOS
 * Add ldap autentificacion 
+* Directory Project creation
+* GUI

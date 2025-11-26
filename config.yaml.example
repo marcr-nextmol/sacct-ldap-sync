@@ -1,33 +1,30 @@
 
-DefaultOrganization: "nextmol"
-DefaultAccount: "nextmol"
-Cluster: "nanoscope"
+DefaultOrganization: "myort"
+DefaultAccount: "myaccount"
+Cluster: "clustername"
 NoLDAPUsersList:
   - "root"
-  - "hpcnow"
+  - "supper"
 NoLDAPAccountsList:
-  - "interactive"
+  - "myaccount"
 NoSlurmUsersList:
   - "admin"
   - "sysadmin"
 NoSlurmAccountsList:
   - "None"
 ExtraLDAPUserAssociations:
-   - user: "mrodriguez"
+   - user: "myuser"
      accounts: 
-        - "interactive"
-   - user: "test_platform"
+        - "myaccount"
+   - user: "user2"
      accounts: 
-        - "interactive"
-   - user: "prod_platform"
-     accounts:
-        - "interactive"
+        - "myaccount"
 AdminUsersList:
    - root
-   - mrodriguez
+   - mysupperuser
 
-SlurmAPIURL: "http://10.0.0.13:6820"
-SlurmJWTToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjM5MTA0NDExMDEsImlhdCI6MTc2Mjk1NzQ1NSwic3VuIjoicm9vdCJ9.AhGmOLDx3jZgzgkC3cLEzd866CTCksk6hjqIZ6n_d_w"
+SlurmAPIURL: "http://slurmrest:6820"
+SlurmJWTToken: "dsfadfsadsffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 LdapServer : 'ldap://localhost'
-LdapBaseDN : 'DC=nextmol,DC=local'
+LdapBaseDN : 'DC=mydom,DC=local'
 LoggingLevel: "INFO" 
